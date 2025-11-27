@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
+import { Capacitor } from '@capacitor/core';
+import { toggleFlashlight } from '@/utils/flashlight';
 
 type FlashlightColor = 'red' | 'blue' | 'alternate';
 
@@ -11,15 +13,22 @@ const Index = () => {
   const [color, setColor] = useState<FlashlightColor>('alternate');
   const [speed, setSpeed] = useState([5]);
   const [currentColor, setCurrentColor] = useState<'red' | 'blue'>('red');
+  const [useRealFlash, setUseRealFlash] = useState(false);
   const intervalRef = useRef<number | null>(null);
+  const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
     if (isActive) {
       const interval = 1000 / speed[0];
       
-      intervalRef.current = window.setInterval(() => {
+      intervalRef.current = window.setInterval(async () => {
         if (color === 'alternate') {
           setCurrentColor(prev => prev === 'red' ? 'blue' : 'red');
+        }
+        
+        if (useRealFlash && isNative) {
+          await toggleFlashlight(true);
+          setTimeout(() => toggleFlashlight(false), interval / 2);
         }
       }, interval);
     } else {
@@ -27,14 +36,20 @@ const Index = () => {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      if (useRealFlash && isNative) {
+        toggleFlashlight(false);
+      }
     }
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      if (useRealFlash && isNative) {
+        toggleFlashlight(false);
+      }
     };
-  }, [isActive, speed, color]);
+  }, [isActive, speed, color, useRealFlash, isNative]);
 
   const getBackgroundColor = () => {
     if (!isActive) return 'bg-[#1A1F2C]';
@@ -84,6 +99,39 @@ const Index = () => {
 
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 p-6 space-y-6">
           
+          {isNative && (
+            <div className="space-y-3">
+              <label className="text-white font-medium text-sm flex items-center gap-2">
+                <Icon name="Flashlight" size={18} />
+                Использовать вспышку
+              </label>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant={!useRealFlash ? 'default' : 'outline'}
+                  onClick={() => setUseRealFlash(false)}
+                  className={`flex-1 ${
+                    !useRealFlash 
+                      ? 'bg-white text-[#1A1F2C] hover:bg-white/90' 
+                      : 'bg-white/5 hover:bg-white/10 text-white border-white/30'
+                  }`}
+                >
+                  Экран
+                </Button>
+                <Button
+                  variant={useRealFlash ? 'default' : 'outline'}
+                  onClick={() => setUseRealFlash(true)}
+                  className={`flex-1 ${
+                    useRealFlash 
+                      ? 'bg-white text-[#1A1F2C] hover:bg-white/90' 
+                      : 'bg-white/5 hover:bg-white/10 text-white border-white/30'
+                  }`}
+                >
+                  Фонарик
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3">
             <label className="text-white font-medium text-sm flex items-center gap-2">
               <Icon name="Palette" size={18} />
